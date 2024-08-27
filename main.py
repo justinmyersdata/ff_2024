@@ -46,11 +46,10 @@ def create_roster_frames(roster_spots):
         label = tk.Label(master=frame, text=f'{roster_spot}:')
         label.pack()
 
-        frame = tk.Frame(master=main_window, relief=tk.SUNKEN)
+        frame = tk.Frame(main_window, relief=tk.SUNKEN)
         frame.pack(side=tk.LEFT)
-        label = tk.Label(master=frame, text=f'{roster_spots[roster_spot]}')
+        label = tk.Label(frame, text=f'{roster_spots[roster_spot]}')
         label.pack()
-
 
 
 main_window = tk.Tk()
@@ -63,14 +62,14 @@ combo.place(x=50, y=50)
 combo2.place(x=50,y=100)
 
 for roster_spot in roster_spots:
-    frame = tk.Frame(master=main_window,relief=tk.FLAT)
+    frame = tk.Frame(master=main_window, relief=tk.FLAT)
     frame.pack(side=tk.LEFT)
-    label = tk.Label(master=frame,text = f'{roster_spot}:')
+    label = tk.Label(master=frame, text=f'{roster_spot}:')
     label.pack()
 
-    frame = tk.Frame(master=main_window,relief=tk.SUNKEN)
+    frame = tk.Frame(main_window, relief=tk.SUNKEN)
     frame.pack(side=tk.LEFT)
-    label = tk.Label(master=frame,text = f'{roster_spots[roster_spot]}')
+    label = tk.Label(frame, text=f'{roster_spots[roster_spot]}')
     label.pack()
 
 main_window.mainloop()
