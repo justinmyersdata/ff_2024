@@ -1,4 +1,6 @@
 import pandas as pd
+from tkinter import messagebox, ttk
+import tkinter as tk
 
 
 roster_spots = {'QB':2
@@ -12,9 +14,6 @@ roster_spots = {'QB':2
 data = pd.read_csv('data.csv') 
 data['position'] = data['Converted'].str[:2]
 
-
-from tkinter import messagebox, ttk
-import tkinter as tk
 
 
 players_taken = []
@@ -30,6 +29,8 @@ def selection_changed(event):
     
     spot = data[data['Player']==selection]['position'].tolist()[0]
     roster_spots[spot]-=1
+
+    data = data[data['Player']!=selection]
 
     create_roster_frames(roster_spots)
 
