@@ -11,13 +11,17 @@ roster_spots = {'QB':2
                 ,'DE':1
                 }
 
+salary = 194
+
 data = pd.read_csv('data.csv') 
 data['position'] = data['Converted'].str[:2]
 
 #Add in variable dictionary
 data['variable'] = data['position'] + '_' + data['Converted']
 
-optimal_team_avaialble = optimal_team(data,roster_spots)
+optimal_team_avaialble = optimal_team(data,roster_spots,salary)
+
+
 
 
 
@@ -28,6 +32,7 @@ my_team = []
 def selection_changed(event):
     #use data from csv through whole function
     global data
+    global salary
 
     #on select show who we selected
     selection = combo.get()
@@ -46,8 +51,9 @@ def selection_changed(event):
     #Keep track of roster spots avaialbe
     spot = data[data['Player']==selection]['position'].tolist()[0]
     roster_spots[spot]-=1
+    salary-=data[data['Player']==selection]['23_Cost'].tolist()[0]
 
-    if roster_spots[spot] ==0:
+    if roster_spots[spot]==0:
         data = data[data['position']!=spot]
 
     #Update roster spots
@@ -56,7 +62,7 @@ def selection_changed(event):
     #Remover players from list
     data = data[data['Player']!=selection]
     combo["values"] = data['Player'].tolist()
-    optimal_team(data,roster_spots)
+    optimal_team(data,roster_spots,salary)
 
     listbox = tk.Listbox(main_window, height = 10, 
                 width = 15, 
@@ -64,7 +70,7 @@ def selection_changed(event):
                 activestyle = 'dotbox', 
                 font = "Helvetica",
                 fg = "yellow")
-    optimal_team_avaialble = optimal_team(data,roster_spots)
+    optimal_team_avaialble = optimal_team(data,roster_spots,salary)
     for player in optimal_team_avaialble:
         listbox.insert(tk.END, player)
         listbox.pack()
@@ -142,5 +148,11 @@ listbox = tk.Listbox(main_window, height = 10,
 for player in my_team:
     listbox.insert(tk.END, player)
 listbox.pack()
+
+salary_frame = tk.Frame(master=main_window, relief=tk.FLAT)
+salary_frame.pack(side=tk.LEFT)
+salary_label = tk.Label(master=salary_frame, text=f'{salary}')
+salary_label.pack()
+
 
 main_window.mainloop()

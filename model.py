@@ -23,8 +23,8 @@ roster_spots = {'QB':2
                 }
 
 
-def optimal_team(league_df,roster_spots):
-    salary_cap = 194
+def optimal_team(league_df,roster_spots, salary):
+    salary_cap = salary
     salaries = {}
     points = {}
     for pos in league_df['position'].unique():
