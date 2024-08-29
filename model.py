@@ -10,6 +10,10 @@ solver = pulp.PULP_CBC_CMD(msg=False)
 #Get position
 league_df['position'] = league_df['Converted'].str[:2]
 
+
+#Add in variable dictionary
+league_df['variable'] = league_df['position'] +'_'+ league_df['Converted']
+
 roster_spots = {'QB':2
                 ,'WR':4
                 ,'TE':2
@@ -57,7 +61,11 @@ def optimal_team(league_df,roster_spots):
         #constraints = [const.replace(v.name, str(v.varValue)) for const in constraints]
         if v.varValue != 0:
             print(v.name, "=", v.varValue)
-            optimal_roster.append(v)
+            optimal_roster.append(v.name)
+
+    #print(optimal_roster)
+            
+    optimal_roster = league_df[league_df['variable'].isin(optimal_roster)]['Player'].tolist()
     
     return optimal_roster
     

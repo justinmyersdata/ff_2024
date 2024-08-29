@@ -13,11 +13,18 @@ roster_spots = {'QB':2
 
 data = pd.read_csv('data.csv') 
 data['position'] = data['Converted'].str[:2]
+
+#Add in variable dictionary
+data['variable'] = data['position'] + '_' + data['Converted']
+
 optimal_team_avaialble = optimal_team(data,roster_spots)
 
 
 
+
+
 players_taken = []
+my_team = []
 def selection_changed(event):
     #use data from csv through whole function
     global data
@@ -33,9 +40,15 @@ def selection_changed(event):
     players_taken.append(selection)
     print(players_taken)
 
+    my_team.append(selection)
+    print(my_team)
+
     #Keep track of roster spots avaialbe
     spot = data[data['Player']==selection]['position'].tolist()[0]
     roster_spots[spot]-=1
+
+    if roster_spots[spot] ==0:
+        data = data[data['position']!=spot]
 
     #Update roster spots
     create_roster_frames(roster_spots)
@@ -55,6 +68,16 @@ def selection_changed(event):
     for player in optimal_team_avaialble:
         listbox.insert(tk.END, player)
         listbox.pack()
+
+    listbox = tk.Listbox(main_window, height = 10, 
+                    width = 15, 
+                    bg = "grey",
+                    activestyle = 'dotbox', 
+                    font = "Helvetica",
+                    fg = "yellow")
+    for player in my_team:
+        listbox.insert(tk.END, player)
+    listbox.pack()
 
 
 def create_roster_frames(roster_spots):
@@ -82,8 +105,10 @@ main_window = tk.Tk()
 main_window.config(width=300, height=200)
 main_window.title("Combobox")
 combo = ttk.Combobox(values=data['Player'].tolist(),width=20)
+combo2 = ttk.Combobox(values=['Yes','No'],width=20)
 combo.bind("<<ComboboxSelected>>", selection_changed)
 combo.place(x=50, y=50)
+combo2.place(x=50, y=25)
 
 for roster_spot in roster_spots:
     frame = tk.Frame(master=main_window, relief=tk.FLAT)
@@ -103,7 +128,18 @@ listbox = tk.Listbox(main_window, height = 10,
                   activestyle = 'dotbox', 
                   font = "Helvetica",
                   fg = "yellow")
+
 for player in optimal_team_avaialble:
+    listbox.insert(tk.END, player)
+listbox.pack()
+
+listbox = tk.Listbox(main_window, height = 10, 
+                  width = 15, 
+                  bg = "grey",
+                  activestyle = 'dotbox', 
+                  font = "Helvetica",
+                  fg = "yellow")
+for player in my_team:
     listbox.insert(tk.END, player)
 listbox.pack()
 
