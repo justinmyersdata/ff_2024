@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fantasy Football Draft Optimizer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .player-list {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        .player-item {
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        .player-item:hover {
+            background-color: #f8f9fa;
+        }
+        .salary-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .roster-spots {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <h1 class="mb-4">Fantasy Football Draft Optimizer</h1>
+        
+        <!-- Salary Information -->
+        <div class="row salary-info">
+            <div class="col-md-4">
+                <h5>Total Cap</h5>
+                <h3 id="total-cap">$194</h3>
+            </div>
+            <div class="col-md-4">
+                <h5>Money Spent</h5>
+                <h3 id="money-spent">$0</h3>
+            </div>
+            <div class="col-md-4">
+                <h5>Money Remaining</h5>
+                <h3 id="money-remaining">$194</h3>
+            </div>
+        </div>
+
+        <!-- Roster Spots -->
+        <div class="row roster-spots">
+            <div class="col-12">
+                <h5>Roster Spots Remaining</h5>
+                <div id="roster-spots" class="d-flex gap-3">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="row">
+            <!-- My Roster -->
+            <div class="col-md-3">
+                <h4>My Roster</h4>
+                <div id="my-roster" class="player-list">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Optimal Team -->
+            <div class="col-md-3">
+                <h4>Optimal Team</h4>
+                <div id="optimal-team" class="player-list">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Available Players -->
+            <div class="col-md-3">
+                <h4>Available Players</h4>
+                <div class="mb-3">
+                    <input type="text" id="player-search" class="form-control mb-2" placeholder="Search players...">
+                    <select id="position-filter" class="form-select">
+                        <option value="ALL">All Positions</option>
+                        <!-- Will be populated by JavaScript -->
+                    </select>
+                </div>
+                <div id="available-players" class="player-list">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Removed Players -->
+            <div class="col-md-3">
+                <h4>Removed Players</h4>
+                <div id="removed-players" class="player-list">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Player Selection Modal -->
+    <div class="modal fade" id="playerModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Player Selection</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="player-info"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="addToTeamBtn">Add to Team</button>
+                    <button type="button" class="btn btn-danger" id="removeFromPoolBtn">Remove from Draft Pool</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let myTeam = [];
+        let removedPlayers = [];
+        let availablePlayers = [];
+        let remainingSalary = 194;
+        let rosterSpots = {};
+        let originalRosterSpots = {};
+        let selectedPlayer = null;
+        let actionHistory = [];  // Add this to track actions for undo
+        const playerModal = new bootstrap.Modal(document.getElementById('playerModal'));
+
+        // Fetch initial data
+        fetch('/api/initial_data')
+            .then(response => response.json())
+            .then(data => {
+                availablePlayers = data.players;
+                rosterSpots = data.roster_spots;
+                originalRosterSpots = {...data.roster_spots};
+                remainingSalary = data.salary_cap;
+                
+                // Populate position filter options
+                const positionFilter = document.getElementById('position-filter');
+                positionFilter.innerHTML = '<option value="ALL">All Positions</option>';
+                Object.keys(rosterSpots).forEach(position => {
+                    positionFilter.innerHTML += `<option value="${position}">${position}</option>`;
+                });
+                
+                updateDisplays();
+            });
+
+        function updateDisplays() {
+            // Update roster spots
+            const rosterSpotsDiv = document.getElementById('roster-spots');
+            rosterSpotsDiv.innerHTML = '';
+            for (const [position, spots] of Object.entries(rosterSpots)) {
+                rosterSpotsDiv.innerHTML += `
+                    <div class="badge bg-primary">
+                        ${position}: ${spots}
+                    </div>
+                `;
+            }
+
+            // Update salary displays
+            const totalSpent = myTeam.reduce((sum, player) => sum + player.cost, 0);
+            document.getElementById('total-cap').textContent = `$${remainingSalary + totalSpent}`;
+            document.getElementById('money-spent').textContent = `$${totalSpent}`;
+            document.getElementById('money-remaining').textContent = `$${remainingSalary}`;
+
+            // Update my roster
+            const myRosterDiv = document.getElementById('my-roster');
+            myRosterDiv.innerHTML = myTeam.map(player => `
+                <div class="player-item">
+                    ${player.name} (${player.position}) - ${player.points} pts - $${player.cost}
+                    <button class="btn btn-sm btn-danger float-end" onclick="removeFromTeam('${player.name}')">×</button>
+                </div>
+            `).join('');
+
+            // Count filled positions
+            const filledPositions = {};
+            for (const player of myTeam) {
+                filledPositions[player.position] = (filledPositions[player.position] || 0) + 1;
+            }
+
+            // Debug logging
+            console.log('Filled positions:', filledPositions);
+            console.log('Roster spots:', rosterSpots);
+
+            // Update available players
+            const availablePlayersDiv = document.getElementById('available-players');
+            const positionFilter = document.getElementById('position-filter').value;
+            const searchQuery = document.getElementById('player-search').value.toLowerCase();
+            
+            // Filter players based on position filter, filled positions, and search query
+            const filteredPlayers = availablePlayers.filter(player => {
+                // Skip if already on team or removed
+                if (myTeam.some(p => p.name === player.name) || 
+                    removedPlayers.some(p => p.name === player.name)) {
+                    return false;
+                }
+                
+                // Skip if doesn't match position filter
+                if (positionFilter !== 'ALL' && player.position !== positionFilter) {
+                    return false;
+                }
+                
+                // Skip if doesn't match search query
+                if (searchQuery && !player.name.toLowerCase().includes(searchQuery)) {
+                    return false;
+                }
+                
+                // Check if position is filled using original roster spots
+                const spotsFilled = filledPositions[player.position] || 0;
+                const totalSpots = originalRosterSpots[player.position];
+                
+                // Debug logging for each player
+                console.log(`Player: ${player.name}, Position: ${player.position}, Spots filled: ${spotsFilled}, Total spots: ${totalSpots}`);
+                
+                // Only hide if position is completely filled
+                return spotsFilled < totalSpots;
+            });
+
+            // Sort by points
+            filteredPlayers.sort((a, b) => b.points - a.points);
+            
+            availablePlayersDiv.innerHTML = filteredPlayers.map(player => `
+                <div class="player-item" onclick="selectPlayer('${player.name}')">
+                    ${player.name} (${player.position}) - ${player.points} pts - $${player.cost}
+                </div>
+            `).join('');
+
+            // Update removed players
+            const removedPlayersDiv = document.getElementById('removed-players');
+            removedPlayersDiv.innerHTML = removedPlayers.map(player => `
+                <div class="player-item">
+                    ${player.name} (${player.position}) - ${player.points} pts - $${player.cost}
+                    <button class="btn btn-sm btn-success float-end" onclick="restorePlayer('${player.name}')">+</button>
+                </div>
+            `).join('');
+
+            // Update optimal team
+            updateOptimalTeam();
+
+            // Update undo button state
+            updateUndoButton();
+        }
+
+        function updateOptimalTeam() {
+            fetch('/api/optimal_team', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    my_team: myTeam.map(p => p.name),
+                    removed_players: removedPlayers.map(p => p.name),
+                    remaining_salary: remainingSalary
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const optimalTeamDiv = document.getElementById('optimal-team');
+                optimalTeamDiv.innerHTML = data.optimal_team.map(player => `
+                    <div class="player-item">
+                        ${player.name} (${player.position}) - ${player.points} pts - $${player.cost}
+                    </div>
+                `).join('');
+            });
+        }
+
+        function selectPlayer(playerName) {
+            selectedPlayer = availablePlayers.find(p => p.name === playerName);
+            if (!selectedPlayer) return;
+
+            // Update modal content
+            const playerInfo = document.getElementById('player-info');
+            playerInfo.innerHTML = `
+                <h4>${selectedPlayer.name}</h4>
+                <p><strong>Position:</strong> ${selectedPlayer.position}</p>
+                <p><strong>Projected Points:</strong> ${selectedPlayer.points}</p>
+                <p><strong>Cost:</strong> $${selectedPlayer.cost}</p>
+            `;
+
+            // Update button states
+            const addToTeamBtn = document.getElementById('addToTeamBtn');
+            const removeFromPoolBtn = document.getElementById('removeFromPoolBtn');
+            
+            addToTeamBtn.disabled = selectedPlayer.cost > remainingSalary || rosterSpots[selectedPlayer.position] <= 0;
+            if (addToTeamBtn.disabled) {
+                addToTeamBtn.title = selectedPlayer.cost > remainingSalary ? 
+                    'Cannot afford this player' : 
+                    `No ${selectedPlayer.position} spots remaining`;
+            }
+
+            // Show modal
+            playerModal.show();
+        }
+
+        // Add event listeners for modal buttons
+        document.getElementById('addToTeamBtn').addEventListener('click', () => {
+            if (selectedPlayer) {
+                myTeam.push(selectedPlayer);
+                rosterSpots[selectedPlayer.position]--;
+                remainingSalary -= selectedPlayer.cost;
+                // Add to action history
+                actionHistory.push({
+                    type: 'add',
+                    player: selectedPlayer
+                });
+                playerModal.hide();
+                updateDisplays();
+            }
+        });
+
+        document.getElementById('removeFromPoolBtn').addEventListener('click', () => {
+            if (selectedPlayer) {
+                removedPlayers.push(selectedPlayer);
+                // Add to action history
+                actionHistory.push({
+                    type: 'remove',
+                    player: selectedPlayer
+                });
+                playerModal.hide();
+                updateDisplays();
+            }
+        });
+
+        function removeFromTeam(playerName) {
+            const player = myTeam.find(p => p.name === playerName);
+            if (!player) return;
+
+            myTeam = myTeam.filter(p => p.name !== playerName);
+            rosterSpots[player.position]++;
+            remainingSalary += player.cost;
+            // Add to action history
+            actionHistory.push({
+                type: 'remove_from_team',
+                player: player
+            });
+            updateDisplays();
+        }
+
+        function restorePlayer(playerName) {
+            const player = removedPlayers.find(p => p.name === playerName);
+            if (!player) return;
+
+            removedPlayers = removedPlayers.filter(p => p.name !== playerName);
+            // Add to action history
+            actionHistory.push({
+                type: 'restore',
+                player: player
+            });
+            updateDisplays();
+        }
+
+        function undoLastAction() {
+            if (actionHistory.length === 0) return;
+
+            const lastAction = actionHistory.pop();
+            switch (lastAction.type) {
+                case 'add':
+                    // Remove from team
+                    myTeam = myTeam.filter(p => p.name !== lastAction.player.name);
+                    rosterSpots[lastAction.player.position]++;
+                    remainingSalary += lastAction.player.cost;
+                    break;
+                case 'remove':
+                    // Remove from removed players
+                    removedPlayers = removedPlayers.filter(p => p.name !== lastAction.player.name);
+                    break;
+                case 'remove_from_team':
+                    // Add back to team
+                    myTeam.push(lastAction.player);
+                    rosterSpots[lastAction.player.position]--;
+                    remainingSalary -= lastAction.player.cost;
+                    break;
+                case 'restore':
+                    // Add back to removed players
+                    removedPlayers.push(lastAction.player);
+                    break;
+            }
+            updateDisplays();
+        }
+
+        // Add undo button to the UI
+        const undoButton = document.createElement('button');
+        undoButton.className = 'btn btn-warning mb-3';
+        undoButton.innerHTML = 'Undo Last Action';
+        undoButton.onclick = undoLastAction;
+        document.querySelector('.container-fluid').insertBefore(undoButton, document.querySelector('.row'));
+
+        // Update undo button state
+        function updateUndoButton() {
+            undoButton.disabled = actionHistory.length === 0;
+        }
+
+        // Position filter change handler
+        document.getElementById('position-filter').addEventListener('change', updateDisplays);
+
+        // Add search input handler
+        document.getElementById('player-search').addEventListener('input', updateDisplays);
+    </script>
+</body>
+</html> 
