@@ -21,12 +21,6 @@ data['variable'] = data['position'] + '_' + data['Converted']
 
 optimal_team_avaialble = optimal_team(data,roster_spots,salary)
 
-
-
-
-
-
-
 players_taken = []
 my_team = []
 def selection_changed(event):
