@@ -41,15 +41,23 @@
         
         <!-- Salary Information -->
         <div class="row salary-info">
-            <div class="col-md-4">
+            <div class="col-md-3">
+                <h5>Roster Points</h5>
+                <h3 id="roster-points">0</h3>
+            </div>
+            <div class="col-md-3">
+                <h5>Expected Points</h5>
+                <h3 id="expected-points">0</h3>
+            </div>
+            <div class="col-md-2">
                 <h5>Total Cap</h5>
                 <h3 id="total-cap">$194</h3>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-2">
                 <h5>Money Spent</h5>
                 <h3 id="money-spent">$0</h3>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-2">
                 <h5>Money Remaining</h5>
                 <h3 id="money-remaining">$194</h3>
             </div>
@@ -118,6 +126,10 @@
                 </div>
                 <div class="modal-body">
                     <div id="player-info"></div>
+                    <div class="mb-3">
+                        <label for="custom-price" class="form-label">Custom Price:</label>
+                        <input type="number" class="form-control" id="custom-price" placeholder="Enter your bid amount">
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-primary" id="addToTeamBtn">Add to Team</button>
@@ -138,6 +150,7 @@
         let originalRosterSpots = {};
         let selectedPlayer = null;
         let actionHistory = [];  // Add this to track actions for undo
+        let optimalTeamData = []; // Store optimal team data
         const playerModal = new bootstrap.Modal(document.getElementById('playerModal'));
 
         // Fetch initial data
@@ -172,16 +185,20 @@
             }
 
             // Update salary displays
-            const totalSpent = myTeam.reduce((sum, player) => sum + player.cost, 0);
+            const totalSpent = myTeam.reduce((sum, player) => sum + (player.actualCost || player.cost), 0);
             document.getElementById('total-cap').textContent = `$${remainingSalary + totalSpent}`;
             document.getElementById('money-spent').textContent = `$${totalSpent}`;
             document.getElementById('money-remaining').textContent = `$${remainingSalary}`;
+            
+            // Update roster points
+            const rosterPoints = myTeam.reduce((sum, player) => sum + player.points, 0);
+            document.getElementById('roster-points').textContent = rosterPoints.toFixed(1);
 
             // Update my roster
             const myRosterDiv = document.getElementById('my-roster');
             myRosterDiv.innerHTML = myTeam.map(player => `
                 <div class="player-item">
-                    ${player.name} (${player.position}) - ${player.points} pts - $${player.cost}
+                    ${player.name} (${player.position}) - ${player.points} pts - $${player.actualCost || player.cost}
                     <button class="btn btn-sm btn-danger float-end" onclick="removeFromTeam('${player.name}')">×</button>
                 </div>
             `).join('');
@@ -269,12 +286,19 @@
             })
             .then(response => response.json())
             .then(data => {
+                optimalTeamData = data.optimal_team;
                 const optimalTeamDiv = document.getElementById('optimal-team');
                 optimalTeamDiv.innerHTML = data.optimal_team.map(player => `
                     <div class="player-item">
                         ${player.name} (${player.position}) - ${player.points} pts - $${player.cost}
                     </div>
                 `).join('');
+                
+                // Update expected points (my team points + optimal team points)
+                const myTeamPoints = myTeam.reduce((sum, player) => sum + player.points, 0);
+                const optimalTeamPoints = data.optimal_team.reduce((sum, player) => sum + player.points, 0);
+                const totalExpectedPoints = myTeamPoints + optimalTeamPoints;
+                document.getElementById('expected-points').textContent = totalExpectedPoints.toFixed(1);
             });
         }
 
@@ -288,8 +312,11 @@
                 <h4>${selectedPlayer.name}</h4>
                 <p><strong>Position:</strong> ${selectedPlayer.position}</p>
                 <p><strong>Projected Points:</strong> ${selectedPlayer.points}</p>
-                <p><strong>Cost:</strong> $${selectedPlayer.cost}</p>
+                <p><strong>Suggested Cost:</strong> $${selectedPlayer.cost}</p>
             `;
+            
+            // Set default value for custom price
+            document.getElementById('custom-price').value = selectedPlayer.cost;
 
             // Update button states
             const addToTeamBtn = document.getElementById('addToTeamBtn');
@@ -309,14 +336,31 @@
         // Add event listeners for modal buttons
         document.getElementById('addToTeamBtn').addEventListener('click', () => {
             if (selectedPlayer) {
-                myTeam.push(selectedPlayer);
+                const customPrice = document.getElementById('custom-price').value;
+                const actualCost = customPrice ? parseInt(customPrice) : selectedPlayer.cost;
+                
+                // Check if we can afford the custom price
+                if (actualCost > remainingSalary) {
+                    alert(`Cannot afford $${actualCost}. You only have $${remainingSalary} remaining.`);
+                    return;
+                }
+                
+                // Add custom price to player object
+                const playerWithCustomPrice = {...selectedPlayer, actualCost};
+                
+                myTeam.push(playerWithCustomPrice);
                 rosterSpots[selectedPlayer.position]--;
-                remainingSalary -= selectedPlayer.cost;
+                remainingSalary -= actualCost;
+                
                 // Add to action history
                 actionHistory.push({
                     type: 'add',
-                    player: selectedPlayer
+                    player: playerWithCustomPrice
                 });
+                
+                // Reset the custom price field
+                document.getElementById('custom-price').value = '';
+                
                 playerModal.hide();
                 updateDisplays();
             }
@@ -341,7 +385,7 @@
 
             myTeam = myTeam.filter(p => p.name !== playerName);
             rosterSpots[player.position]++;
-            remainingSalary += player.cost;
+            remainingSalary += (player.actualCost || player.cost);
             // Add to action history
             actionHistory.push({
                 type: 'remove_from_team',
@@ -372,7 +416,7 @@
                     // Remove from team
                     myTeam = myTeam.filter(p => p.name !== lastAction.player.name);
                     rosterSpots[lastAction.player.position]++;
-                    remainingSalary += lastAction.player.cost;
+                    remainingSalary += (lastAction.player.actualCost || lastAction.player.cost);
                     break;
                 case 'remove':
                     // Remove from removed players
@@ -382,7 +426,7 @@
                     // Add back to team
                     myTeam.push(lastAction.player);
                     rosterSpots[lastAction.player.position]--;
-                    remainingSalary -= lastAction.player.cost;
+                    remainingSalary -= (lastAction.player.actualCost || lastAction.player.cost);
                     break;
                 case 'restore':
                     // Add back to removed players
