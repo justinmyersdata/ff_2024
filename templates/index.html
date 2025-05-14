@@ -146,6 +146,7 @@
         let removedPlayers = [];
         let availablePlayers = [];
         let remainingSalary = 194;
+        let totalSalaryCap = 194; // Store the original total cap
         let rosterSpots = {};
         let originalRosterSpots = {};
         let selectedPlayer = null;
@@ -161,6 +162,7 @@
                 rosterSpots = data.roster_spots;
                 originalRosterSpots = {...data.roster_spots};
                 remainingSalary = data.salary_cap;
+                totalSalaryCap = data.salary_cap; // Set the total cap from API
                 
                 // Populate position filter options
                 const positionFilter = document.getElementById('position-filter');
@@ -186,7 +188,7 @@
 
             // Update salary displays
             const totalSpent = myTeam.reduce((sum, player) => sum + (player.actualCost || player.cost), 0);
-            document.getElementById('total-cap').textContent = `$${remainingSalary + totalSpent}`;
+            document.getElementById('total-cap').textContent = `$${totalSalaryCap}`; // Use the fixed total cap
             document.getElementById('money-spent').textContent = `$${totalSpent}`;
             document.getElementById('money-remaining').textContent = `$${remainingSalary}`;
             
@@ -336,8 +338,9 @@
         // Add event listeners for modal buttons
         document.getElementById('addToTeamBtn').addEventListener('click', () => {
             if (selectedPlayer) {
-                const customPrice = document.getElementById('custom-price').value;
-                const actualCost = customPrice ? parseInt(customPrice) : selectedPlayer.cost;
+                const customPriceInput = document.getElementById('custom-price').value;
+                const actualCost = customPriceInput && !isNaN(parseInt(customPriceInput)) ? 
+                    parseInt(customPriceInput) : selectedPlayer.cost;
                 
                 // Check if we can afford the custom price
                 if (actualCost > remainingSalary) {
