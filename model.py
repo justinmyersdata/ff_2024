@@ -52,6 +52,9 @@ def optimal_team(league_df,roster_spots, salary):
 
     prob.solve(solver)
 
+    if pulp.LpStatus[prob.status] != 'Optimal':
+        return []
+
     #score = str(prob.objective)
     #constraints = [str(const) for const in prob.constraints.values()]
 

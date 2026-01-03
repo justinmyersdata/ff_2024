@@ -34,7 +34,7 @@ def get_initial_data():
             'name': player['Player'],
             'position': player['position'],
             'points': round(player['Points'], 1),
-            'cost': player['23_Cost']
+            'cost': player['Exp_Cost']
         })
     
     return jsonify({
@@ -76,7 +76,7 @@ def get_optimal_team():
             'name': player,
             'position': player_info['position'],
             'points': float(round(player_info['Points'], 1)),
-            'cost': int(player_info['23_Cost'])
+            'cost': int(player_info['Exp_Cost'])
         })
     
     return jsonify({
